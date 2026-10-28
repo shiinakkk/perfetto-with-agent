@@ -1,0 +1,29 @@
+{
+  "name": "perfetto-local-collab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-only Perfetto UI with an explicitly authorized agent bridge",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "build": "node scripts/package-ui.mjs",
+    "build:source": "node scripts/build.mjs",
+    "package:ui": "node scripts/package-ui.mjs",
+    "agent": "node bin/perfetto-agent.mjs",
+    "demo": "node examples/longest-kernel.mjs",
+    "demo:b300": "node examples/b300-targets.mjs",
+    "test": "node --import tsx --test test/*.test.mjs",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "esbuild": "^0.25.12",
+    "tsx": "^4.20.6"
+  }
+}

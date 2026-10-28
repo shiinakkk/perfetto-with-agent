@@ -1,0 +1,14 @@
+node_modules/
+ui-dist/
+upstream/perfetto/
+upstream/extracted/
+upstream/perfetto-incomplete/
+upstream/*.zip
+state/
+build-manifest.json
+test-results/
+playwright-report/
+*.log
+perfetto-agent-connection.json
+perfetto-view.json
+.DS_Store

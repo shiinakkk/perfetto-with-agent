@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/google/perfetto.git",
+  "commit": "15010533b275181cdd593027908704369d1c99b5",
+  "retrieved_at": "2026-10-28",
+  "source": "official GitHub HEAD at project setup",
+  "archive_sha256": "1afbcb01d9413d4689b38ad6c117c45b201b9ba34f55c28bd7801e193e7f70e2",
+  "release": "v59.1",
+  "release_asset": "https://github.com/google/perfetto/releases/download/v59.1/perfetto-ui.zip",
+  "release_ui_sha256": "df4433f5d8d98d2c490249870944c819ff85206f61e55e5983bbcc2338c83904"
+}

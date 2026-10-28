@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "results": [
+    {
+      "target": "mRoPE implementation (fused_rope)",
+      "pattern": "fused_rope",
+      "slice_id": "4366",
+      "track_id": "118",
+      "ts": "2325176029657221",
+      "dur": "3456",
+      "name": "void zops::decode::fused_rope_impl<64, 64, 1, 32, long, true, false, false, true, __nv_bfloat16, long>(unsigned char const*, long, long, unsigned char*, long, long, unsigned char*, long, __nv_bfloat16 const*, long const*, long, long, long const*, long const*, unsigned char*, long, long, int)",
+      "note_id": "note_1",
+      "final_version": 3
+    },
+    {
+      "target": "sparse MLA",
+      "pattern": "sparse_mla",
+      "slice_id": "3439",
+      "track_id": "77",
+      "ts": "2325176027281965",
+      "dur": "18593",
+      "name": "void zops::decode::sparse_mla::sm100::sm100_sparse_mla_bf16_impl<3u, 2048u, 576u, 512u, 64u, 64u, 64u, 2u, 4u, 128u, 32u, 64u, 32u, true, 256u>(int const*, int, long, long, float*, float*, float*, int const*, int const*, float, CUtensorMap_st, CUtensorMap_st, CUtensorMap_st, CUtensorMap_st, CUtensorMap_st)",
+      "note_id": "note_2",
+      "final_version": 6
+    },
+    {
+      "target": "combine",
+      "pattern": "deep_ep::legacy::internode_ll::combine",
+      "slice_id": "16319",
+      "track_id": "454",
+      "ts": "2325176087496271",
+      "dur": "63361",
+      "name": "void deep_ep::legacy::internode_ll::combine<false, 6144, 11, 4>(void*, void*, int*, void*, void const*, long const*, float const*, int const*, long const*, int*, long*, int*, int, int*, int, int, int, int, int, int, int, int, int, int, bool)",
+      "note_id": "note_3",
+      "final_version": 9
+    }
+  ],
+  "undo": "Only the most recent agent write can be undone with agent.ps1 undo"
+}

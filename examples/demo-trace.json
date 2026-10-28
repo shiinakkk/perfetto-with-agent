@@ -1,0 +1,130 @@
+{
+  "traceEvents": [
+    {
+      "ph": "M",
+      "pid": 1,
+      "tid": 0,
+      "name": "process_name",
+      "args": {
+        "name": "B300 demo rank 0"
+      }
+    },
+    {
+      "ph": "M",
+      "pid": 1,
+      "tid": 7,
+      "name": "thread_name",
+      "args": {
+        "name": "GPU stream 7"
+      }
+    },
+    {
+      "ph": "M",
+      "pid": 1,
+      "tid": 8,
+      "name": "thread_name",
+      "args": {
+        "name": "GPU stream 8"
+      }
+    },
+    {
+      "name": "mRoPE",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 7,
+      "ts": 1000,
+      "dur": 420,
+      "args": {
+        "stream": 7,
+        "correlation_id": 1000,
+        "demo": true
+      }
+    },
+    {
+      "name": "sparse MLA",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 7,
+      "ts": 1600,
+      "dur": 2800,
+      "args": {
+        "stream": 7,
+        "correlation_id": 1001,
+        "demo": true
+      }
+    },
+    {
+      "name": "combine",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 7,
+      "ts": 4700,
+      "dur": 650,
+      "args": {
+        "stream": 7,
+        "correlation_id": 1002,
+        "demo": true
+      }
+    },
+    {
+      "name": "gemm",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 8,
+      "ts": 1200,
+      "dur": 900,
+      "args": {
+        "stream": 8,
+        "correlation_id": 1003,
+        "demo": true
+      }
+    },
+    {
+      "name": "sparse MLA",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 8,
+      "ts": 2400,
+      "dur": 3600,
+      "args": {
+        "stream": 8,
+        "correlation_id": 1004,
+        "demo": true
+      }
+    },
+    {
+      "name": "combine",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 8,
+      "ts": 6300,
+      "dur": 700,
+      "args": {
+        "stream": 8,
+        "correlation_id": 1005,
+        "demo": true
+      }
+    },
+    {
+      "name": "mRoPE",
+      "cat": "kernel,gpu",
+      "ph": "X",
+      "pid": 1,
+      "tid": 7,
+      "ts": 7200,
+      "dur": 380,
+      "args": {
+        "stream": 7,
+        "correlation_id": 1006,
+        "demo": true
+      }
+    }
+  ],
+  "displayTimeUnit": "ms"
+}
