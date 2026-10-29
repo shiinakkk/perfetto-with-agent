@@ -20,7 +20,7 @@ const pluginTarget = path.join(upstream, 'ui', 'src', 'plugins', pluginId);
 mkdirSync(pluginTarget, {recursive: true});
 for (const name of [
   'index.ts', 'bridge.ts', 'core.ts', 'fingerprint.ts', 'panel.ts',
-  'perfetto_adapter.ts', 'upstream_version.ts',
+  'perfetto_adapter.ts', 'aliases.ts', 'trace_utils.ts', 'upstream_version.ts',
 ]) {
   copyFileSync(path.join(pluginSource, name), path.join(pluginTarget, name));
 }

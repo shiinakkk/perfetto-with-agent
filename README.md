@@ -1,6 +1,6 @@
 # Perfetto 本地 Agent 协作版
 
-在用户电脑上运行官方 Perfetto 前端。用户通过文件选择器打开 trace，并显式授权后，agent 可以查询当前 Trace Processor、选中 kernel、调整时间窗与区域、修改 track 布局、添加 notes，并保存或撤销视图操作。
+在用户电脑上运行官方 Perfetto 前端。用户通过文件选择器打开 trace，并显式授权后，agent 可以查询当前 Trace Processor、选中 kernel、调整时间窗与区域、修改 track 布局、添加 notes、展开 CPU tracks、设置图内算子别名，并保存或撤销视图操作。
 
 **原始 trace 不上传、不修改。标注和布局保存在独立的视图 JSON 中。**
 
@@ -139,6 +139,33 @@ npm run demo:b300
 ```
 
 完整协议见 [docs/protocol.md](docs/protocol.md)。
+
+## CPU 事件与算子显示别名
+
+打开 trace 时会自动展开包含 `cpu_op`、`user_annotation`、CUDA runtime/driver 等 CPU 事件的 track 及其父分组，解决 CPU 数据已导入但被折叠隐藏的问题。也可以点击 **Show CPU tracks**，或运行：
+
+```powershell
+.\agent.ps1 show-cpu
+```
+
+`state` 中的 `cpu.available`、`cpu.visible` 以及每个 track 的 `is_cpu`、`visible` 可用来检查实际可见性。
+
+选中一个 slice 后，**直接双击图内该 slice** 或按 **R**，即可在 slice 附近编辑显示别名；也可点击 **Rename selected operator**。例如把 `w8a16_kernel/gate_up_proj` 改为 `FFN L1`：
+
+- 别名只覆盖图内标签，**不修改原始 trace、官方详情或 SQL 中的 kernel 名称**，并保留 slice 原底色和选择边框。
+- 别名按单个 `slice_id` 保存，不会同时改写所有同名事件。
+- timeline notes 保持原有能力，与算子别名互不影响。
+- 别名随视图保存、导出、导入并支持撤销；恢复时校验原始名称、时间、track 和 depth，避免贴错事件。
+
+agent 也可直接设置或清除别名：
+
+```powershell
+.\agent.ps1 rename --slice-id 1 --name "FFN L1"
+.\agent.ps1 clear-alias --slice-id 1
+.\agent.ps1 clear-aliases
+```
+
+可运行 `node examples/create-alias-demo-trace.mjs` 生成含 CPU 事件和 w8a16 kernel 的演示文件 `examples/alias-demo-trace.json`。
 
 ## 视图保存与恢复
 

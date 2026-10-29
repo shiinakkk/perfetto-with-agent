@@ -22,6 +22,10 @@ Commands:
   clear-area
   layout --track <track-uri-or-node-id> [--collapse|--expand|--pin|--unpin]
   reset-layout
+  show-cpu
+  rename --slice-id 123 --name "FFN L1"
+  clear-alias --slice-id 123
+  clear-aliases
   note --text "investigate this" --start <int64> [--end <int64>] [--color <css-color>]
   update-note --id <note-id> [--text "updated"] [--start <int64>] [--end <int64>] [--color <css-color>]
   remove-note --id <note-id>
@@ -150,6 +154,15 @@ async function main() {
       break;
     }
     case 'reset-layout': response = await call('layout.reset'); break;
+    case 'show-cpu': response = await call('tracks.showCpu'); break;
+    case 'rename':
+      response = await call('aliases.set', {
+        slice_id: int64(one(options, 'slice-id', true), 'slice id'),
+        alias: one(options, 'name', true),
+      });
+      break;
+    case 'clear-alias': response = await call('aliases.remove', {slice_id: int64(one(options, 'slice-id', true), 'slice id')}); break;
+    case 'clear-aliases': response = await call('aliases.clear'); break;
     case 'note':
       response = await call('notes.add', {
         text: one(options, 'text', true),

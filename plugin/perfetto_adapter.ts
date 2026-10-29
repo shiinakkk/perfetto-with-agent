@@ -6,6 +6,8 @@ import {Time} from '../../base/time';
 import {HighPrecisionTimeSpan} from '../../base/high_precision_time_span';
 import {CollabError, int64String, safeNumber, sqlForSubquery, timeRange} from './core';
 import type {PerfettoAdapter, QueryResult} from './bridge';
+import {SliceAliasManager} from './aliases';
+import {isTrackVisible, resolveAliasEntry, showCpuTracks as revealCpuTracks, validateAliasTargets} from './trace_utils';
 
 interface NoteManagerInternal extends NoteManager {
   readonly notes: ReadonlyMap<string, Note | SpanNote>;
@@ -17,16 +19,29 @@ interface SelectionManagerInternal extends SelectionManager {
 }
 
 export class OfficialPerfettoAdapter implements PerfettoAdapter {
+  onExternalChange?: () => void;
   private trace: Trace;
   private notes: NoteManagerInternal;
   private selection: SelectionManagerInternal;
   private initialLayout: Array<Record<string, any>>;
+  private aliases: SliceAliasManager;
+  private cpuTrackIds = new Set<string>();
 
   constructor(trace: Trace) {
     this.trace = trace;
     this.notes = trace.notes as NoteManagerInternal;
     this.selection = trace.selection as SelectionManagerInternal;
     this.initialLayout = this.currentLayout();
+    this.aliases = new SliceAliasManager(trace);
+    this.aliases.onChanged = () => this.onExternalChange?.();
+    this.aliases.onEditRequest = async (selection, canvas, anchor) => {
+      const existing = this.aliases.get(selection.eventId.toString());
+      const entry = await resolveAliasEntry(trace, selection.eventId.toString(), existing?.alias);
+      if (entry.track_uri !== selection.trackUri) {
+        throw new CollabError('UNSUPPORTED_ALIAS_TARGET', 'Display aliases are available only for slice events');
+      }
+      this.aliases.openEditor(entry, canvas, anchor);
+    };
   }
 
   isReady(): boolean {
@@ -66,6 +81,7 @@ export class OfficialPerfettoAdapter implements PerfettoAdapter {
       focus,
       area,
       notes: Array.from(this.notes.notes.values(), (note) => this.serializeNote(note)),
+      aliases: this.aliases.list(),
       layout: this.currentLayout(),
       tracks: this.trackList(),
     };
@@ -73,8 +89,10 @@ export class OfficialPerfettoAdapter implements PerfettoAdapter {
 
   async applyView(view: Record<string, any>): Promise<void> {
     this.validateViewTargets(view);
+    await validateAliasTargets(this.trace, view.aliases ?? []);
     this.resetLayout();
     for (const entry of view.layout) this.applyLayoutEntry(entry);
+    this.aliases.load(view.aliases ?? []);
     const desiredNotes = new Map<string, Record<string, any>>(view.notes.map((note: Record<string, any>) => [note.id, note]));
     for (const id of this.notes.notes.keys()) {
       if (!desiredNotes.has(id)) this.notes.removeNote(id);
@@ -118,6 +136,35 @@ export class OfficialPerfettoAdapter implements PerfettoAdapter {
       throw new CollabError('NO_SELECTION', 'Select a timeline object before zooming to the selection');
     }
     this.trace.selection.scrollToSelection('focus');
+  }
+
+  async showCpuTracks(): Promise<Record<string, any>> {
+    const result = await revealCpuTracks(this.trace);
+    this.cpuTrackIds = new Set(result.track_ids.map(String));
+    return result;
+  }
+
+  async renameSelected(): Promise<void> {
+    const selection = this.trace.selection.selection;
+    if (selection.kind !== 'track_event') throw new CollabError('NO_SELECTION', 'Select a slice before editing its display alias');
+    const existing = this.aliases.get(selection.eventId.toString());
+    const entry = await resolveAliasEntry(this.trace, selection.eventId.toString(), existing?.alias);
+    if (entry.track_uri !== selection.trackUri) throw new CollabError('UNSUPPORTED_ALIAS_TARGET', 'Display aliases are available only for slice events');
+    this.aliases.openEditor(entry);
+  }
+
+  async setAlias(sliceId: string, alias: string): Promise<Record<string, any>> {
+    const entry = await resolveAliasEntry(this.trace, sliceId, alias);
+    return this.aliases.setAlias(entry);
+  }
+
+  removeAlias(sliceId: string): Record<string, any> {
+    if (!this.aliases.removeAlias(sliceId)) throw new CollabError('ALIAS_NOT_FOUND', `No display alias exists for slice ${sliceId}`);
+    return {removed: sliceId};
+  }
+
+  clearAliases(): Record<string, any> {
+    return {removed: this.aliases.clearAliases()};
   }
 
   async selectSlices(sliceIds: string[]): Promise<void> {
@@ -242,11 +289,14 @@ export class OfficialPerfettoAdapter implements PerfettoAdapter {
   private trackList(): Array<Record<string, any>> {
     return this.trace.currentWorkspace.flatTracksOrdered.filter((node) => node.uri).map((node) => {
       const track = this.trace.tracks.getTrack(node.uri!);
+      const trackIds = (track?.tags?.trackIds ?? []).map((id) => id.toString());
       return {
         uri: node.uri,
         node_id: node.id,
         name: node.name,
-        track_ids: (track?.tags?.trackIds ?? []).map((id) => id.toString()),
+        track_ids: trackIds,
+        is_cpu: trackIds.some((id) => this.cpuTrackIds.has(id)),
+        visible: isTrackVisible(node),
         collapsed: node.collapsed,
         pinned: this.trace.currentWorkspace.hasPinnedTrack(node),
       };

@@ -156,6 +156,21 @@ export class CollabPanel {
       this.body.appendChild(element('div', 'pc-note', 'The downloaded file and copied commands contain the agent credential. Disconnecting or changing trace invalidates them.'));
     }
 
+    this.body.appendChild(element('div', 'pc-label', 'Tracks & operators'));
+    const trackActions = element('div');
+    trackActions.append(
+      this.button('Show CPU tracks', async () => {
+        const result = await controller.showCpuTracks();
+        this.message = `CPU tracks: ${result.visible}/${result.available} visible; ${result.expanded} tracks or groups expanded.`;
+      }),
+      this.button('Rename selected operator', async () => {
+        await controller.renameSelected();
+        this.message = 'Edit the alias in the chart. SQL and the original trace stay unchanged.';
+      }),
+    );
+    this.body.appendChild(trackActions);
+    this.body.appendChild(element('div', 'pc-note', 'Double-click a selected slice or press R to edit its display alias. Timeline notes remain separate.'));
+
     this.body.appendChild(element('div', 'pc-label', 'View state'));
     const viewActions = element('div');
     viewActions.append(

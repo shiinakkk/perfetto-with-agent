@@ -72,8 +72,10 @@ function attach(trace: any): void {
         }
       });
       if (disposed || app()?.trace !== trace) return;
+      const adapter = new RuntimePerfettoAdapter(trace);
+      const cpu = await adapter.showCpuTracks();
       controller = new CollabController({
-        adapter: new RuntimePerfettoAdapter(trace),
+        adapter,
         fingerprint,
         parserVersion: RUNTIME_PARSER_VERSION,
         onUpdate: () => {
@@ -82,6 +84,7 @@ function attach(trace: any): void {
         },
       });
       panel?.setController(controller);
+      panel?.showStatus(`Trace ready. ${cpu.visible} CPU tracks visible. Agent access is not authorized.`);
       app()?.raf?.scheduleFullRedraw();
     } catch (error) {
       if (!disposed) panel?.showError(error);

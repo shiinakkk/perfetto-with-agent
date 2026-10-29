@@ -17,6 +17,7 @@ export interface QueryResult {
 }
 
 export interface PerfettoAdapter {
+  onExternalChange?: () => void;
   isReady(): boolean;
   traceName(): string;
   snapshot(): Record<string, any>;
@@ -24,6 +25,11 @@ export interface PerfettoAdapter {
   setViewport(start: string, end: string): Promise<void> | void;
   center(start: string, end?: string): Promise<void> | void;
   zoomToSelection(): Promise<void> | void;
+  showCpuTracks(): Promise<Record<string, any>>;
+  renameSelected(): Promise<void>;
+  setAlias(sliceId: string, alias: string): Promise<Record<string, any>>;
+  removeAlias(sliceId: string): Record<string, any>;
+  clearAliases(): Record<string, any>;
   selectSlices(sliceIds: string[]): Promise<void> | void;
   clearSelection(): void;
   setArea(start: string, end: string, trackUris: string[]): Promise<void> | void;
@@ -52,6 +58,7 @@ const WRITE_COMMANDS = new Set([
   'state.import', 'viewport.set', 'viewport.center', 'viewport.zoomToSelection',
   'selection.set', 'selection.clear', 'area.set', 'area.clear', 'layout.set',
   'layout.reset', 'notes.add', 'notes.update', 'notes.remove', 'history.undo',
+  'tracks.showCpu', 'aliases.set', 'aliases.remove', 'aliases.clear',
 ]);
 
 function clone<T>(value: T): T {
@@ -95,6 +102,7 @@ export class CollabController {
     this.traceTitle = options.adapter.traceName();
     this.onUpdate = options.onUpdate ?? (() => {});
     this.lastSnapshot = JSON.stringify(this.captureView());
+    this.adapter.onExternalChange = () => this.refreshFromUser();
     this.pollTimer = window.setInterval(() => this.refreshFromUser(), 400);
   }
 
@@ -116,6 +124,18 @@ export class CollabController {
 
   canUndo(): boolean {
     return this.history !== undefined && this.history.afterVersion === this.version;
+  }
+
+  async showCpuTracks(): Promise<Record<string, any>> {
+    let result: Record<string, any> | undefined;
+    await this.runUserWrite(async () => {
+      result = await this.adapter.showCpuTracks();
+    });
+    return result as Record<string, any>;
+  }
+
+  async renameSelected(): Promise<void> {
+    await this.adapter.renameSelected();
   }
 
   async authorize(): Promise<Connection> {
@@ -213,14 +233,21 @@ export class CollabController {
       focus: snapshot.focus ?? null,
       area: snapshot.area ?? null,
       notes: snapshot.notes ?? [],
+      aliases: snapshot.aliases ?? [],
       layout: snapshot.layout ?? [],
       tracks: snapshot.tracks ?? [],
     };
   }
 
   state(): Record<string, any> {
+    const view = this.captureView();
+    const cpuTracks = view.tracks.filter((track: Record<string, any>) => track.is_cpu);
     return {
-      ...this.captureView(),
+      ...view,
+      cpu: {
+        available: cpuTracks.length,
+        visible: cpuTracks.filter((track: Record<string, any>) => track.visible).length,
+      },
       state_version: this.version,
       agent_connected: this.isConnected(),
       can_undo: this.canUndo(),
@@ -386,6 +413,16 @@ export class CollabController {
       case 'viewport.zoomToSelection':
         await this.adapter.zoomToSelection();
         return {zoomed: true};
+      case 'tracks.showCpu':
+        return this.adapter.showCpuTracks();
+      case 'aliases.set': {
+        if (typeof args.alias !== 'string') throw new CollabError('INVALID_ALIAS', 'alias is required');
+        return this.adapter.setAlias(int64String(args.slice_id, 'slice id'), args.alias);
+      }
+      case 'aliases.remove':
+        return this.adapter.removeAlias(int64String(args.slice_id, 'slice id'));
+      case 'aliases.clear':
+        return this.adapter.clearAliases();
       case 'selection.set': {
         if (!Array.isArray(args.slice_ids) || args.slice_ids.length < 1 || args.slice_ids.length > 1000) {
           throw new CollabError('INVALID_SELECTION', 'slice_ids must contain between 1 and 1000 entries');
@@ -528,6 +565,8 @@ export class CollabController {
     if (code) entry.error_code = code;
     if (kind === 'query' && result && Number.isSafeInteger((result as any).row_count)) entry.row_count = (result as any).row_count;
     if (kind === 'selection.set' && result && Array.isArray((result as any).slice_ids)) entry.object_ids = (result as any).slice_ids.slice(0, 100);
+    if (kind === 'aliases.set' && result && typeof (result as any).slice_id === 'string') entry.object_ids = [(result as any).slice_id];
+    if (kind === 'aliases.remove' && result && typeof (result as any).removed === 'string') entry.object_ids = [(result as any).removed];
     if (kind.startsWith('notes.') && result && typeof (result as any).id === 'string') entry.object_ids = [(result as any).id];
     this.logs.push(entry);
     if (this.logs.length > 200) this.logs.splice(0, this.logs.length - 200);

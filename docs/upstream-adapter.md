@@ -33,7 +33,8 @@ ZIP 包含官方前端、Trace Processor WASM、worker、字体和其他静态�
 | 区域 | `SelectionManager.selectArea()`、`clearSelection()` |
 | 缩放到选择 | `SelectionManager.scrollToSelection('focus')` |
 | track 列表 | `TrackManager.getTrack()`、`Workspace.flatTracksOrdered` |
-| 折叠、展开、置顶 | `TrackNode.collapse()/expand()/pin()/unpin()` |
+| 折叠、展开、置顶 | `TrackNode.collapse()/expand()/reveal()/pin()/unpin()` |
+| 图内别名渲染 | `SliceTrack` 原生标签与缓存机制，见下方内部依赖 |
 | 新建、更新 notes | `NoteManager.addNote()/addSpanNote()/getNote()` |
 | 生命周期 | `Trace.onTraceReady`、`Trace.trash.use()/defer()` |
 
@@ -47,6 +48,7 @@ SQL `LONG` 由上游解码为 bigint，桥接层转换成十进制字符串，�
 2. `NoteManagerImpl.removeNote(id)`：删除 note。
 3. `SelectionManagerImpl.selectNote({id})`：恢复 note focus。
 4. 发布版的 `HighPrecisionTimeSpan` 构造器从现有对象取得。
+5. `SliceTrack.attrs.sliceName/getKey/colorizer` 与原始 `getColor`：在原 renderer 中换字并刷新缓存，同时保留原始配色。
 
 对应上游实现位于 `ui/src/core/note_manager.ts`、`ui/src/core/selection_manager.ts` 和 `ui/src/base/high_precision_time_span.ts`。升级时必须检查这些成员是否仍存在及语义是否改变。
 
@@ -57,6 +59,12 @@ SQL `LONG` 由上游解码为 bigint，桥接层转换成十进制字符串，�
 - `TrackNode.id` 只在当前 UI 会话唯一，可用于即时操作，不能盲用于重载后的持久引用。
 - 无 URI 分组在保存布局时使用 `group:<父子索引路径>`，并同时记录 `fullPath` 供检查；相同 trace 与解析器版本下才允许恢复。
 - 一个 stream 可导入成多个前端 track，不能假定 `track_id` 与 URI 一一对应，也不能用显示层叠代替时间重叠分析。
+
+## CPU 与别名适配细节
+
+CPU track 不能直接按 `track.type = thread_execution` 判断，因为真实 GPU track 也使用该类型。`trace_utils.ts` 按 `cpu_op`、`user_annotation`、CUDA runtime/driver 等类别查询 `slice.track_id`，再通过 `Track.tags.trackIds` 找到前端节点并调用 `reveal()/expand()`。在 B300 上，对应 `/slice_2`、`/slice_3`、`/slice_4`、`/slice_5`、`/slice_8`，其 thread 父组原本折叠。
+
+别名通过 `SliceTrack` 的 `attrs.sliceName` 钩子让官方 renderer 直接绘制，避免修改 `slice.name` 或 Trace Processor 数据。`attrs.getKey` 加入别名版本以刷新缓存，`attrs.colorizer` 仍按原始名称和原始 `getColor` 逻辑计算，确保换字不换色。双击编辑使用真实 `.pf-track__canvas` 交互元素和鼠标锚点；官方虚拟滚动画布的 DOM rect 与逻辑 track bounds 不是同一坐标系，不能直接混用。别名保存时还通过 SQL 复核 slice 原始元数据。
 
 ## 本地安全边界
 

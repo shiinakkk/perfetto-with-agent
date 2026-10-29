@@ -1,7 +1,7 @@
 # 验收记录
 
 日期：2026-10-28  
-结论：**文档定义的第一版本地协作功能已实现，并通过 21 组单元测试和 3 个真实浏览器端到端场景。**
+结论：**文档定义的第一版本地协作功能已实现，并通过 25 组单元测试和 4 个真实浏览器端到端场景。**
 
 ## 1. 交付与运行形态
 
@@ -24,9 +24,9 @@
 
 | 命令 | 结果 |
 |---|---|
-| `npm test` | 21/21 通过，0 失败 |
+| `npm test` | 25/25 通过，0 失败 |
 | `npm run build` | 通过；固定哈希再次打包成功 |
-| `npm run test:e2e` | 3/3 通过，约 29 秒 |
+| `npm run test:e2e` | 4/4 通过，约 39 秒 |
 | `npm audit` | 0 个已知漏洞 |
 | `curl http://127.0.0.1:19400/api/health` | 通过 |
 
@@ -91,7 +91,28 @@ clean-source-decode-bs4-spec2-20261028-1793182201.9781592-TP-0-DP-0-EP-0.trace.j
 
 ![真实查询超时与忙状态](evidence/query-timeout.png)
 
-## 7. 其他 trace 哈希
+## 7. CPU 可见性与图内算子别名
+
+新增 `test/e2e/cpu-alias.spec.mjs`，使用 `examples/alias-demo-trace.json` 验证：
+
+- 自动展开 CPU track 及其父分组；手动折叠父组后，`tracks.showCpu` 能重新展开。
+- agent 将 `w8a16_kernel/gate_up_proj` 设置为 `FFN L1`，原始名称保持不变。
+- 真实鼠标双击图内 slice 打开内联编辑器，再改成 `FFN Layer 1` 并保存。
+- 使用原生 `sliceName` 和缓存版本刷新显示文字，配色仍按原始名称计算；slice 原底色与选择边框保留，不再铺白底。
+- 别名导出/导入、清除、删除后撤销均正确；SQL 和原始 trace 中的 kernel 名不变。
+- 原 timeline notes、B300 和超时场景在同一轮回归中全部通过。
+
+CPU 未显示的实际原因是 thread 父组折叠，而非缺少 CPU 数据。B300 中 `cpu_op`、`user_annotation` 和 CUDA runtime 对应 `/slice_2`、`/slice_3`、`/slice_4`、`/slice_5`、`/slice_8`，现已能自动展开。
+
+编辑器直接锚定在原 w8a16 slice 旁：
+
+![图内算子别名编辑器](evidence/alias-editor.png)
+
+最终图内显示 `FFN Layer 1`，下方官方详情仍显示原始 `w8a16_kernel/gate_up_proj`：
+
+![图内显示 FFN Layer 1](evidence/alias-on-timeline.png)
+
+## 8. 其他 trace 哈希
 
 `examples/demo-trace.json` 在测试前后均为：
 
@@ -99,10 +120,10 @@ clean-source-decode-bs4-spec2-20261028-1793182201.9781592-TP-0-DP-0-EP-0.trace.j
 b5703e7bb5d4149e91fc2ef680a138f84619ddd4defe05895323a906d01e7228
 ```
 
-## 8. 测试工具说明与未覆盖边界
+## 9. 测试工具说明与未覆盖边界
 
 - 内置浏览器首页 DOM 检查通过，但文件上传能力不受支持，且其截图接口两次出现 3 秒准备超时。因此文件选择和视觉验收由本机 Edge + Playwright 完成；没有把这些内置能力记作成功。
-- 上述三张最终 PNG 均已实际读取并进行视觉复核：官方时间线、详情、notes、track、面板和日志可读，未发现阻断操作的布局问题。面板是可折叠的右侧覆盖层。
+- 上述最终 PNG 均已实际读取并进行视觉复核：官方时间线、详情、notes、track、别名编辑器、面板和日志可读，未发现阻断操作的布局问题。面板是可折叠的右侧覆盖层。
 - 第一版使用浏览器内 Trace Processor WASM；没有无浏览器原生后端。查询需要标签页保持打开。
 - 当前 Engine 没有公开取消 API；超时不会伪称已取消，旧查询未结束前阻止同会话新查询。
 - 官方前端只有一个焦点 slice；notes 是全局时间线单点/区间，未伪称支持 track-bound note。
@@ -111,7 +132,7 @@ b5703e7bb5d4149e91fc2ef680a138f84619ddd4defe05895323a906d01e7228
 - 多标签页隔离由服务端真实 WebSocket 单元测试覆盖；未额外执行两个并行 GUI 标签页的完整视觉流程。
 - 合并 stream、派生 track、算子链分析、跨电脑分享和多人协作属于后续功能，未列为已支持。
 
-## 9. 复现
+## 10. 复现
 
 ```powershell
 cd D:\looplm-forb\perfetto-collab

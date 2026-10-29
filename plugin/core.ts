@@ -202,6 +202,59 @@ function requiredTrack(value: unknown): string {
   return track;
 }
 
+export interface AliasEntry {
+  slice_id: string;
+  track_uri: string;
+  start: string;
+  end: string;
+  original_name: string;
+  alias: string;
+  depth: number;
+}
+
+export function validateAliasText(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length === 0 || value.trim().length > 200) {
+    throw new CollabError('INVALID_ALIAS', 'Alias must contain 1-200 characters');
+  }
+  return value.trim();
+}
+
+export function validateAliasEntry(value: unknown): AliasEntry {
+  const entry = object(value, 'alias');
+  const alias = validateAliasText(entry.alias);
+  if (typeof entry.original_name !== 'string' || entry.original_name.length > 10_000) {
+    throw new CollabError('INVALID_ALIAS', 'original_name must be a string of at most 10000 characters');
+  }
+  const start = int64String(entry.start, 'alias.start');
+  const end = int64String(entry.end, 'alias.end');
+  if (BigInt(start) > BigInt(end)) throw new CollabError('INVALID_ALIAS', 'alias.start must not exceed alias.end');
+  if (!Number.isSafeInteger(entry.depth) || entry.depth < 0 || entry.depth > 10_000) {
+    throw new CollabError('INVALID_ALIAS', 'depth must be an integer between 0 and 10000');
+  }
+  return {
+    slice_id: int64String(entry.slice_id, 'alias.slice_id'),
+    track_uri: requiredTrack(entry.track_uri),
+    start,
+    end,
+    original_name: entry.original_name,
+    alias,
+    depth: entry.depth,
+  };
+}
+
+export function validateAliasEntries(value: unknown): AliasEntry[] {
+  if (!Array.isArray(value) || value.length > 5000) {
+    throw new CollabError('INVALID_VIEW', 'aliases must be an array of at most 5000 entries');
+  }
+  const ids = new Set<string>();
+  return value.map((raw) => {
+    const entry = validateAliasEntry(raw);
+    if (ids.has(entry.slice_id)) throw new CollabError('INVALID_VIEW', `Duplicate alias slice id: ${entry.slice_id}`);
+    ids.add(entry.slice_id);
+    return entry;
+  });
+}
+
 export function validateViewDocument(value: unknown): Record<string, any> {
   const view = object(value, 'view');
   if (view.format !== VIEW_FORMAT || view.format_version !== VIEW_FORMAT_VERSION) {
@@ -262,6 +315,7 @@ export function validateViewDocument(value: unknown): Record<string, any> {
     }
     optionalTrack(note.track_uri);
   }
+  view.aliases = validateAliasEntries(view.aliases ?? []);
   if (!Array.isArray(view.layout) || view.layout.length > 10_000) {
     throw new CollabError('INVALID_VIEW', 'layout must be an array of at most 10000 entries');
   }

@@ -24,6 +24,7 @@ function setup(t, overrides = {}) {
     focus: null,
     area: null,
     notes: [],
+    aliases: [],
     layout: [{track_uri: 'gpu/7', collapsed: false, pinned: false}],
     tracks: [{uri: 'gpu/7', name: 'GPU stream 7', track_ids: ['7']}],
   };
@@ -33,13 +34,34 @@ function setup(t, overrides = {}) {
     traceName: () => 'demo.json',
     snapshot: () => JSON.parse(JSON.stringify(data)),
     applyView(view) {
-      for (const key of ['viewport', 'focus', 'area', 'notes', 'layout']) data[key] = JSON.parse(JSON.stringify(view[key]));
+      for (const key of ['viewport', 'focus', 'area', 'notes', 'aliases', 'layout']) data[key] = JSON.parse(JSON.stringify(view[key]));
     },
     setViewport(start, end) { data.viewport = {start, end}; },
     center() {},
     zoomToSelection() {
       if (!data.focus) throw new Error('No selection');
       data.viewport = {start: '90', end: '210'};
+    },
+    async showCpuTracks() {
+      data.layout[0].collapsed = false;
+      data.tracks[0].is_cpu = true;
+      data.tracks[0].visible = true;
+      return {available: 1, visible: 1, expanded: 1, track_ids: ['7'], track_uris: ['gpu/7']};
+    },
+    async renameSelected() {},
+    async setAlias(sliceId, alias) {
+      const entry = {slice_id: sliceId, track_uri: 'gpu/7', start: '100', end: '200', original_name: 'w8a16', alias, depth: 0};
+      data.aliases = [entry];
+      return entry;
+    },
+    removeAlias(sliceId) {
+      data.aliases = data.aliases.filter((entry) => entry.slice_id !== sliceId);
+      return {removed: sliceId};
+    },
+    clearAliases() {
+      const removed = data.aliases.length;
+      data.aliases = [];
+      return {removed};
     },
     selectSlices(ids) {
       if (ids.some((id) => !['1', '2'].includes(id))) throw new Error(`Slice ${ids[0]} does not exist`);
@@ -112,6 +134,22 @@ test('agent write, int64 query, persistence and one-step undo form a closed loop
   const queryLog = controller.operationLogs().find((entry) => entry.kind === 'query');
   assert.equal(queryLog.row_count, 1);
   assert.ok(!JSON.stringify(controller.operationLogs()).includes('SELECT id'));
+});
+
+test('CPU expansion and operator aliases are versioned and undoable independently', async (t) => {
+  const {controller, data, request} = setup(t);
+  const cpu = await request('tracks.showCpu', {}, 0);
+  assert.equal(cpu.result.visible, 1);
+  assert.equal(cpu.version, 1);
+  const aliased = await request('aliases.set', {slice_id: '3', alias: 'FFN L1'}, 1);
+  assert.equal(aliased.result.original_name, 'w8a16');
+  assert.equal(aliased.result.alias, 'FFN L1');
+  assert.equal(aliased.version, 2);
+  assert.equal(controller.state().cpu.visible, 1);
+  const undone = await request('history.undo', {}, 2);
+  assert.equal(undone.ok, true);
+  assert.equal(data.aliases.length, 0);
+  assert.equal(data.tracks[0].is_cpu, true);
 });
 
 test('concurrent view commands are rejected while an async write is in progress', async (t) => {

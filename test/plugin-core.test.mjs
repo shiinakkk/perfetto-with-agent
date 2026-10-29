@@ -7,6 +7,7 @@ import {
   sqlForSubquery,
   timeRange,
   validateSql,
+  validateAliasEntries,
   validateViewDocument,
   VIEW_FORMAT,
   VIEW_FORMAT_VERSION,
@@ -73,6 +74,7 @@ function validView() {
 
 test('view import validates format, content fingerprint and parser version', () => {
   const view = validateViewDocument(validView());
+  assert.deepEqual(view.aliases, []);
   assert.doesNotThrow(() => assertCompatibleView(view, 'a'.repeat(64), 'test-parser'));
   assert.throws(() => assertCompatibleView(view, 'b'.repeat(64), 'test-parser'), /different trace/);
   assert.throws(() => assertCompatibleView(view, 'a'.repeat(64), 'new-parser'), /different trace/);
@@ -85,6 +87,17 @@ test('view import validates format, content fingerprint and parser version', () 
   const badArea = validView();
   badArea.area = {start: '1', end: '2', track_uris: [null]};
   assert.throws(() => validateViewDocument(badArea), /track_uri/);
+});
+
+test('alias documents validate labels, timing and unique slice ids', () => {
+  const alias = {
+    slice_id: '3', track_uri: '/slice_2', start: '100', end: '120',
+    original_name: 'w8a16_kernel', alias: 'FFN L1', depth: 0,
+  };
+  assert.deepEqual(validateAliasEntries([alias]), [alias]);
+  assert.throws(() => validateAliasEntries([{...alias, alias: ' '}]), /1-200/);
+  assert.throws(() => validateAliasEntries([{...alias, end: '99'}]), /must not exceed/);
+  assert.throws(() => validateAliasEntries([alias, alias]), /Duplicate alias/);
 });
 
 test('incremental SHA-256 matches known vectors and chunk boundaries', async () => {

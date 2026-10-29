@@ -41,6 +41,7 @@ export default class LocalCollabPlugin implements PerfettoPlugin {
       });
       if (this.disposed) return;
       const adapter = new OfficialPerfettoAdapter(ctx);
+      const cpu = await adapter.showCpuTracks();
       this.controller = new CollabController({
         adapter,
         fingerprint,
@@ -51,6 +52,7 @@ export default class LocalCollabPlugin implements PerfettoPlugin {
         },
       });
       this.panel?.setController(this.controller);
+      this.panel?.showStatus(`Trace ready. ${cpu.visible} CPU tracks visible. Agent access is not authorized.`);
       ctx.raf.scheduleFullRedraw();
     } catch (error) {
       if (!this.disposed) this.panel?.showError(error);

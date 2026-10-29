@@ -65,7 +65,7 @@ HTTP 非 200 不代表响应不是结构化 JSON；agent 应同时检查 `ok` �
 
 | `kind` | 主要参数 | 作用 |
 |---|---|---|
-| `state.get` | 无 | trace 身份、视口、focus、area、tracks、notes、布局、版本和连接状态 |
+| `state.get` | 无 | trace 身份、视口、focus、area、tracks、notes、aliases、CPU 可见性、布局、版本和连接状态 |
 | `state.export` | 无 | 带格式版本的独立视图文档 |
 | `state.import` | `view` | 校验并恢复兼容视图 |
 | `query` | `sql`, `max_rows`, `timeout_ms` | 在当前标签页 Engine 中执行只读 SQL |
@@ -79,6 +79,10 @@ HTTP 非 200 不代表响应不是结构化 JSON；agent 应同时检查 `ok` �
 | `area.clear` | 无 | 清除当前区域选择 |
 | `layout.set` | `track_uri`, `action` | `collapse` / `expand` / `pin` / `unpin`；也可传稳定节点 ID |
 | `layout.reset` | 无 | 恢复本次 trace 初始折叠和置顶布局 |
+| `tracks.showCpu` | 无 | 按 CPU 事件 track ID 展开对应 track 及父分组，返回可见数量 |
+| `aliases.set` | `slice_id`, `alias` | 设置某个 slice 的图内显示别名，不改原始名称 |
+| `aliases.remove` | `slice_id` | 删除某个 slice 的显示别名 |
+| `aliases.clear` | 无 | 清除当前 trace 的全部显示别名 |
 | `notes.add` | `start`, 可选 `end`, `text`, `color`, 可选 `id` | 新建单点或区间 note |
 | `notes.update` | `id` 和待修改字段 | 修改已存在 note |
 | `notes.remove` | `id` | 删除已存在 note |
@@ -111,12 +115,37 @@ HTTP 非 200 不代表响应不是结构化 JSON；agent 应同时检查 `ok` �
   "focus": null,
   "area": null,
   "notes": [],
+  "aliases": [],
   "layout": [],
   "tracks": []
 }
 ```
 
-恢复时要求 `fingerprint` 和 `parser_version` 同时匹配。视图最大 2 MiB，最多 5000 条 notes 和 10000 条布局记录。引用不存在的 track、note 或非法 focus 会明确失败。
+恢复时要求 `fingerprint` 和 `parser_version` 同时匹配。视图最大 2 MiB，最多 5000 条 notes、5000 条 aliases 和 10000 条布局记录。引用不存在的 track、note 或非法 focus 会明确失败。
+
+## CPU tracks 与算子显示别名
+
+`state.cpu` 返回 `available` 和 `visible`；每个 track 还包含 `is_cpu` 与 `visible`。打开 trace 时会根据 `cpu_op`、`user_annotation`、CUDA runtime/driver 等真实事件的 `track_id` 展开对应 track 及父分组，不创建重复 track。`tracks.showCpu` 可再次执行，且作为可撤销的布局写操作处理。
+
+显示别名按单个 `slice_id` 绑定，不是全局重命名，也不改变同名其他 slice：
+
+```json
+{
+  "slice_id": "1",
+  "track_uri": "/slice_1",
+  "start": "1000000",
+  "end": "2800000",
+  "original_name": "w8a16_kernel/gate_up_proj",
+  "alias": "FFN L1",
+  "depth": 0
+}
+```
+
+- 图上直接编辑：选中 slice 后双击该 slice，或按 `R`；也可点击面板的 `Rename selected operator`。
+- `alias` 为 1–200 个字符；`original_name` 始终保留原始 kernel 名。
+- 由官方 slice renderer 的 `sliceName` 钩子替换显示文字，缓存键包含别名版本，配色仍按原始名称计算；slice 底色和选择边框不变。SQL、官方详情和原始 trace 不变。timeline notes 与 aliases 是独立数据。
+- 恢复视图时逐项校验 slice、track URI、原始名称、起止时间和 depth；不匹配返回 `ALIAS_TARGET_NOT_FOUND` 或 `ALIAS_TARGET_MISMATCH`，不会把标签贴到其他事件。
+- 旧视图没有 `aliases` 字段时按空数组恢复，保持向后兼容。
 
 ## 版本与撤销
 
